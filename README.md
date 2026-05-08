@@ -12,6 +12,18 @@
 issue,date,r1,r2,r3,r4,r5,r6,blue
 ```
 
+可以使用内置爬虫从 500 彩票网历史数据页抓取并保存为本地 CSV：
+
+```bash
+python -m src.crawler --start 03001 --end 99999 --output data/processed/ssq_history.csv
+```
+
+爬虫输出字段包含：
+
+```csv
+issue,date,r1,r2,r3,r4,r5,r6,blue,sales,pool
+```
+
 安装依赖并运行：
 
 ```bash
@@ -24,35 +36,6 @@ python -m src.main --config config.yaml
 ```bash
 python -m src.main --config config.yaml --seed 42 --num-tickets 5
 ```
-
-## 运行模式
-
-### 标准模式
-
-`generation.mode: "standard"` 是默认模式。程序会随机生成单注红球和蓝球，并让每注号码通过已启用的历史形态过滤器。
-
-### 覆盖模式
-
-`generation.mode: "coverage"` 会先随机生成一个候选红球池，再用轮转/小复式方式组合多注号码，最后仍然应用相同的过滤器。
-
-相关配置：
-
-```yaml
-generation:
-  mode: "coverage"
-  num_tickets: 5
-
-coverage:
-  red_pool_size: 8
-  max_tickets: 28
-  pick: 6
-```
-
-说明：
-
-- `red_pool_size` 是候选红球池大小；
-- `max_tickets` 是覆盖模式最多生成的注数；
-- `pick` 当前固定为 6，以保持每注 `r1-r6` 输出格式稳定。
 
 ## 输出文件
 
@@ -81,22 +64,60 @@ coverage:
 - AC 值过滤；
 - 历史重合 5 红过滤。
 
-## 蓝球策略
+## 蓝球模式
 
-`blue.mode` 支持：
+通过 `blue.mode` 配置蓝球生成策略：
 
-- `random`：从 1-16 中均匀随机；
-- `anti_popular`：从 10-16 中随机，用于降低大众常选小号的撞号可能；
-- `layered_rotation`：在低区 1-5、中区 6-11、高区 12-16 之间轮换或分层随机。
+```yaml
+blue:
+  mode: "random"       # random / anti_popular / layered_rotation
+```
 
-这些策略只用于随机辅助和撞号风险控制，不代表预测。
+| 模式 | 说明 |
+|---|---|
+| `random` | 在 01~16 范围内均匀随机生成。 |
+| `anti_popular` | 从 10~16 的大号区域均匀随机生成，避开常见小号区域以降低撞号可能。 |
+| `layered_rotation` | 按已开奖期数轮转三个区域：区域 A（01~05）、区域 B（06~11）、区域 C（12~16），每期轮换一个区域再从中随机。若无历史数据则随机选定一个区域。 |
+
+这些模式仅用于随机辅助和撞号风险控制，不代表预测。
 
 ## 轮转工具
 
-`src/wheeling.py` 提供两个工具函数：
+`src/wheeling.py` 提供轮转算法，供 coverage 模式调用，也可独立使用：
 
-- `full_wheel(pool, pick=6)`：返回候选池中任选 6 个红球的全部组合；
-- `limited_wheel(pool, max_tickets, pick=6, rng=None)`：在全部组合中抽取最多 `max_tickets` 注，并支持固定随机种子复现。
+- **`full_wheel(pool, pick=6)`** — 对给定红球池生成全部 C(n, 6) 种组合。
+- **`limited_wheel(pool, max_tickets, pick=6, rng=None)`** — 从全部组合中随机采样至多 `max_tickets` 注，支持固定随机种子以复现结果。当组合总数不超过 `max_tickets` 时返回全部。
+
+## 生成模式
+
+### standard 模式（默认）
+
+`generation.mode: "standard"` 按注独立随机生成红球，每注逐一通过所有启用的历史形态过滤器。各注之间互不影响。
+
+### coverage 模式
+
+`generation.mode: "coverage"` 在形态过滤器基础上增加轮转覆盖：每次尝试时先从 01~33 中随机抽取一个红球池（大小由 `coverage.red_pool_size` 指定），对池内红球调用 `limited_wheel` 做有限轮转组合，再逐组合校验过滤器。多注号码共享同一个红球池的覆盖结构。
+
+启用 coverage 模式需在 `config.yaml` 中配置：
+
+```yaml
+generation:
+  mode: "coverage"
+
+coverage:
+  red_pool_size: 8   # 红球池大小（6~33），每次尝试随机抽取
+  max_tickets: 28     # 单次轮转生成的上限注数
+  pick: 6             # 每注从池中选取的红球数（固定 6）
+```
+
+### 模式对比
+
+| 维度 | standard | coverage |
+|---|---|---|
+| 红球生成 | 每注独立随机 6 个红球 | 先建红球池，池内轮转组合 |
+| 注间关系 | 各注独立，无结构关联 | 同一批注共享红球池覆盖结构 |
+| 过滤器 | 逐注校验 | 逐注校验 |
+| 适用场景 | 随机辅助选号 | 覆盖型多注组合，控制预算 |
 
 ## 项目结构
 
@@ -109,14 +130,15 @@ data/
   output/
 src/
   config.py
+  crawler.py
   data_loader.py
   preprocess.py
   features.py
   stats.py
   filters.py
   blue_strategy.py
-  wheeling.py
   generator.py
+  wheeling.py
   main.py
 tests/
 ```
