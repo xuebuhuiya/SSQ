@@ -37,7 +37,9 @@ python -m src.main --config config.yaml
 python -m src.main --config config.yaml --seed 42 --num-tickets 5
 ```
 
-启动本地网页：
+## 打开本地网页
+
+如果只想通过界面操作，先确认依赖已安装、`data/processed/ssq_history.csv` 已存在，然后启动本地网页服务：
 
 ```bash
 python -m src.web_app --config config.yaml --host 127.0.0.1 --port 5000
@@ -48,6 +50,8 @@ python -m src.web_app --config config.yaml --host 127.0.0.1 --port 5000
 ```text
 http://127.0.0.1:5000/
 ```
+
+网页支持选择注数、生成模式、蓝球策略和过滤策略，并会展示生成结果与过滤摘要。
 
 ## 输出文件
 
