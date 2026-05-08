@@ -1,0 +1,41 @@
+data:
+  history_csv: "data/processed/ssq_history.csv"
+  output_dir: "data/output"
+  encoding: "utf-8-sig"
+  fallback_encoding: "gbk"
+
+generation:
+  mode: "standard"
+  num_tickets: 5
+  random_seed: 42
+  max_attempts: 100000
+
+filters:
+  enable_anti_collision: true
+  enable_position_quantile: true
+  enable_shape_filter: true
+  enable_zone_filter: true
+  enable_mod3_filter: false
+  enable_ac_filter: false
+  enable_history_duplicate_filter: true
+  enable_history_overlap5_filter: false
+
+position_quantile:
+  lower: 0.10
+  upper: 0.90
+
+shape_quantile:
+  red_sum_lower: 0.10
+  red_sum_upper: 0.90
+  span_lower: 0.10
+  span_upper: 0.90
+
+rules:
+  max_consecutive_len: 3
+  require_gt31: true
+  max_zone_count: 4
+  min_zone_covered: 2
+  max_mod3_count: 4
+
+blue:
+  mode: "random"
