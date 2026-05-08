@@ -12,6 +12,7 @@ generation:
 
 filters:
   enable_anti_collision: true
+  enable_gt31_filter: false
   enable_position_quantile: true
   enable_shape_filter: true
   enable_zone_filter: true

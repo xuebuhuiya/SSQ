@@ -74,6 +74,7 @@ def _build_candidate_pool_summary(
         ("position_filter_failed", "position_filter", "enable_position_quantile"),
         ("shape_filter_failed", "shape_filter", "enable_shape_filter"),
         ("anti_collision_filter_failed", "anti_collision_filter", "enable_anti_collision"),
+        ("gt31_filter_failed", "gt31_filter", "enable_gt31_filter"),
         ("zone_filter_failed", "zone_filter", "enable_zone_filter"),
         ("mod3_filter_failed", "mod3_filter", "enable_mod3_filter"),
         ("ac_filter_failed", "ac_filter", "enable_ac_filter"),

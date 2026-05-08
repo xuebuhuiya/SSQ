@@ -22,6 +22,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "filters": {
         "enable_anti_collision": True,
+        "enable_gt31_filter": False,
         "enable_position_quantile": True,
         "enable_shape_filter": True,
         "enable_zone_filter": True,

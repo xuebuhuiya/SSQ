@@ -30,6 +30,7 @@ def _default_filters() -> dict[str, bool]:
         "enable_position_quantile": True,
         "enable_shape_filter": True,
         "enable_anti_collision": True,
+        "enable_gt31_filter": False,
         "enable_zone_filter": True,
         "enable_history_duplicate_filter": True,
         "enable_mod3_filter": False,
@@ -59,6 +60,7 @@ class TestGetIndex:
         assert "留空时每次生成都会自动使用新种子" in text
         assert "标准模式逐注随机" in text
         assert "控制和值、跨度、奇偶、大小和连号" in text
+        assert "至少包含 32/33" in text
         assert "功能说明" in text
         assert "基础过滤" in text
         assert "撞号与扩展过滤" in text

@@ -40,13 +40,17 @@ def pass_shape_filter(reds: list[int], stats: dict[str, Any], config: dict[str, 
 
 def pass_anti_collision_filter(reds: list[int], config: dict[str, Any]) -> bool:
     reds = sorted(reds)
-    if config["rules"].get("require_gt31", True) and not any(red > 31 for red in reds):
-        return False
     if compute_red_features(reds)["max_consecutive_len"] >= 6:
         return False
     if _is_arithmetic_sequence(reds):
         return False
     return True
+
+
+def pass_gt31_filter(reds: list[int], config: dict[str, Any]) -> bool:
+    if not config["rules"].get("require_gt31", True):
+        return True
+    return any(red > 31 for red in reds)
 
 
 def pass_zone_filter(reds: list[int], config: dict[str, Any]) -> bool:
@@ -100,6 +104,8 @@ def pass_all_filters(
         reasons.append("shape_filter_failed")
     if filters.get("enable_anti_collision", True) and not pass_anti_collision_filter(reds, config):
         reasons.append("anti_collision_filter_failed")
+    if filters.get("enable_gt31_filter", False) and not pass_gt31_filter(reds, config):
+        reasons.append("gt31_filter_failed")
     if filters.get("enable_zone_filter", True) and not pass_zone_filter(reds, config):
         reasons.append("zone_filter_failed")
     if filters.get("enable_mod3_filter", False) and not pass_mod3_filter(reds, config):
@@ -116,6 +122,7 @@ def enabled_filter_names(config: dict[str, Any]) -> list[str]:
         "enable_position_quantile": "position",
         "enable_shape_filter": "shape",
         "enable_anti_collision": "anti_collision",
+        "enable_gt31_filter": "gt31",
         "enable_zone_filter": "zone",
         "enable_mod3_filter": "mod3",
         "enable_ac_filter": "ac",

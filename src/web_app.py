@@ -299,6 +299,7 @@ HTML = """
           <label class="check"><input type="checkbox" name="enable_position_quantile" checked> 位置分位数</label>
           <label class="check"><input type="checkbox" name="enable_shape_filter" checked> 和值/跨度/奇偶/连号</label>
           <label class="check"><input type="checkbox" name="enable_anti_collision" checked> 反撞号</label>
+          <label class="check"><input type="checkbox" name="enable_gt31_filter"> 至少包含 32/33</label>
           <label class="check"><input type="checkbox" name="enable_zone_filter" checked> 三区分布</label>
           <label class="check"><input type="checkbox" name="enable_history_duplicate_filter" checked> 历史重复排除</label>
           <label class="check"><input type="checkbox" name="enable_mod3_filter"> 012 路分布</label>
@@ -307,7 +308,8 @@ HTML = """
           <ul class="help-list">
             <li>位置分位数：限制第 1 到第 6 个红球落在历史主区间。</li>
             <li>形态过滤：控制和值、跨度、奇偶、大小和连号不过度极端。</li>
-            <li>反撞号：减少生日号、顺子号、等差号等大众化组合。</li>
+            <li>反撞号：减少顺子号、等差号等大众化组合，不再强制包含 32/33。</li>
+            <li>至少包含 32/33：单独启用后会明显提高最后一位为 32 或 33 的概率。</li>
             <li>三区分布：避免红球过度集中在某一区间。</li>
             <li>历史重复：排除历史已出现过的红球组合。</li>
             <li>012 路和 AC 值：用于进一步控制余数分布和离散度，默认关闭。</li>
@@ -373,7 +375,8 @@ HTML = """
           <div class="guide-block">
             <h4>撞号与扩展过滤</h4>
             <ul>
-              <li><strong>反撞号</strong>：减少生日号、顺子号、等差号等大众化组合。</li>
+              <li><strong>反撞号</strong>：减少顺子号、等差号等大众化组合，默认不会强制包含 32/33。</li>
+              <li><strong>至少包含 32/33</strong>：用于主动避开全部红球都在 1-31 的组合，会让第 6 位集中在 32 或 33，默认关闭。</li>
               <li><strong>历史重复</strong>：排除历史上已经出现过的红球组合。</li>
               <li><strong>012 路 / AC 值 / 重合 5 红</strong>：更严格的扩展过滤，可能显著降低候选通过率。</li>
             </ul>
@@ -392,6 +395,7 @@ HTML = """
       "enable_position_quantile",
       "enable_shape_filter",
       "enable_anti_collision",
+      "enable_gt31_filter",
       "enable_zone_filter",
       "enable_history_duplicate_filter",
       "enable_mod3_filter",
@@ -529,6 +533,7 @@ def _build_request_config(base_config: dict[str, Any], payload: dict[str, Any]) 
         "enable_position_quantile",
         "enable_shape_filter",
         "enable_anti_collision",
+        "enable_gt31_filter",
         "enable_zone_filter",
         "enable_mod3_filter",
         "enable_ac_filter",
