@@ -37,6 +37,18 @@ python -m src.main --config config.yaml
 python -m src.main --config config.yaml --seed 42 --num-tickets 5
 ```
 
+启动本地网页：
+
+```bash
+python -m src.web_app --config config.yaml --host 127.0.0.1 --port 5000
+```
+
+然后打开：
+
+```text
+http://127.0.0.1:5000/
+```
+
 ## 输出文件
 
 运行后会写入 `data/output/`：
