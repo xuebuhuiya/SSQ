@@ -25,6 +25,35 @@ python -m src.main --config config.yaml
 python -m src.main --config config.yaml --seed 42 --num-tickets 5
 ```
 
+## 运行模式
+
+### 标准模式
+
+`generation.mode: "standard"` 是默认模式。程序会随机生成单注红球和蓝球，并让每注号码通过已启用的历史形态过滤器。
+
+### 覆盖模式
+
+`generation.mode: "coverage"` 会先随机生成一个候选红球池，再用轮转/小复式方式组合多注号码，最后仍然应用相同的过滤器。
+
+相关配置：
+
+```yaml
+generation:
+  mode: "coverage"
+  num_tickets: 5
+
+coverage:
+  red_pool_size: 8
+  max_tickets: 28
+  pick: 6
+```
+
+说明：
+
+- `red_pool_size` 是候选红球池大小；
+- `max_tickets` 是覆盖模式最多生成的注数；
+- `pick` 当前固定为 6，以保持每注 `r1-r6` 输出格式稳定。
+
 ## 输出文件
 
 运行后会写入 `data/output/`：
@@ -52,6 +81,23 @@ python -m src.main --config config.yaml --seed 42 --num-tickets 5
 - AC 值过滤；
 - 历史重合 5 红过滤。
 
+## 蓝球策略
+
+`blue.mode` 支持：
+
+- `random`：从 1-16 中均匀随机；
+- `anti_popular`：从 10-16 中随机，用于降低大众常选小号的撞号可能；
+- `layered_rotation`：在低区 1-5、中区 6-11、高区 12-16 之间轮换或分层随机。
+
+这些策略只用于随机辅助和撞号风险控制，不代表预测。
+
+## 轮转工具
+
+`src/wheeling.py` 提供两个工具函数：
+
+- `full_wheel(pool, pick=6)`：返回候选池中任选 6 个红球的全部组合；
+- `limited_wheel(pool, max_tickets, pick=6, rng=None)`：在全部组合中抽取最多 `max_tickets` 注，并支持固定随机种子复现。
+
 ## 项目结构
 
 ```text
@@ -69,6 +115,7 @@ src/
   stats.py
   filters.py
   blue_strategy.py
+  wheeling.py
   generator.py
   main.py
 tests/

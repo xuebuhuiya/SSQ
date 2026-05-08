@@ -132,3 +132,24 @@ def test_candidate_pool_summary_counts_add_up(sample_stats, sample_config):
     accepted = [r for r in summary if r["step"] == "accepted"][0]
     total_removed = sum(r["removed_count"] for r in summary)
     assert initial["remaining_count"] == accepted["remaining_count"] + total_removed
+
+
+def test_coverage_raises_when_attempts_exhausted(sample_stats, sample_coverage_config):
+    sample_coverage_config["generation"]["max_attempts"] = 1
+    sample_coverage_config["generation"]["num_tickets"] = 999
+    with pytest.raises(GenerationError):
+        generate_tickets(999, sample_stats, sample_coverage_config)
+
+
+def test_coverage_reds_all_valid(sample_stats, sample_coverage_config):
+    df = generate_tickets(5, sample_stats, sample_coverage_config)
+    for _, row in df.iterrows():
+        reds = [row["r1"], row["r2"], row["r3"], row["r4"], row["r5"], row["r6"]]
+        assert reds == sorted(reds)
+        assert all(1 <= r <= 33 for r in reds)
+        assert len(set(reds)) == 6
+
+
+def test_coverage_blue_in_range(sample_stats, sample_coverage_config):
+    df = generate_tickets(5, sample_stats, sample_coverage_config)
+    assert all(1 <= b <= 16 for b in df["blue"])
