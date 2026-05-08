@@ -46,6 +46,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "min_zone_covered": 2,
         "max_mod3_count": 4,
     },
+    "coverage": {
+        "red_pool_size": 8,
+        "max_tickets": 28,
+        "pick": 6,
+    },
     "blue": {"mode": "random"},
 }
 
@@ -102,6 +107,21 @@ def validate_config(config: dict[str, Any]) -> None:
         upper = float(config[section][upper_key])
         if not 0 <= lower <= upper <= 1:
             raise ConfigError(f"Invalid quantile range: {section}.{lower_key}/{upper_key}")
+
+    mode = config["generation"].get("mode", "standard")
+    if mode == "coverage":
+        coverage = config.get("coverage", {})
+        if not isinstance(coverage, dict):
+            raise ConfigError("coverage config must be a mapping.")
+        red_pool_size = int(coverage.get("red_pool_size", 0))
+        pick = int(coverage.get("pick", 6))
+        max_tickets = int(coverage.get("max_tickets", 0))
+        if pick != 6:
+            raise ConfigError(f"coverage.pick must be 6, got {pick}.")
+        if red_pool_size < pick or red_pool_size > 33:
+            raise ConfigError(f"coverage.red_pool_size must be between pick ({pick}) and 33, got {red_pool_size}.")
+        if max_tickets <= 0:
+            raise ConfigError("coverage.max_tickets must be positive.")
 
 
 def resolve_path(config: dict[str, Any], value: str | Path) -> Path:

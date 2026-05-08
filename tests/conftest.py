@@ -64,3 +64,36 @@ def sample_history(sample_csv: Path) -> pd.DataFrame:
 @pytest.fixture
 def sample_stats(sample_history: pd.DataFrame, sample_config: dict) -> dict:
     return build_stats(sample_history, sample_config)
+
+
+@pytest.fixture
+def sample_coverage_config(tmp_path: Path, sample_csv: Path) -> dict:
+    return deep_merge(
+        DEFAULT_CONFIG,
+        {
+            "data": {
+                "history_csv": str(sample_csv),
+                "output_dir": str(tmp_path / "output"),
+            },
+            "position_quantile": {"lower": 0.0, "upper": 1.0},
+            "shape_quantile": {
+                "red_sum_lower": 0.0,
+                "red_sum_upper": 1.0,
+                "span_lower": 0.0,
+                "span_upper": 1.0,
+                "ac_lower": 0.0,
+                "ac_upper": 1.0,
+            },
+            "generation": {
+                "mode": "coverage",
+                "num_tickets": 5,
+                "random_seed": 123,
+                "max_attempts": 50000,
+            },
+            "coverage": {
+                "red_pool_size": 8,
+                "max_tickets": 28,
+                "pick": 6,
+            },
+        },
+    )

@@ -8,6 +8,7 @@ import pandas as pd
 from .blue_strategy import generate_blue
 from .features import compute_red_features, mod3_counts, zone_counts
 from .filters import enabled_filter_names, pass_all_filters
+from .wheeling import limited_wheel
 
 
 class GenerationError(RuntimeError):
@@ -23,6 +24,8 @@ def _ticket_record(ticket_id: int, reds: list[int], blue: int, config: dict[str,
     features = compute_red_features(reds)
     zones = zone_counts(reds)
     mods = mod3_counts(reds)
+    mode = config["generation"].get("mode", "standard")
+    notes = "coverage_wheeling_constrained" if mode == "coverage" else "historical_shape_constrained_random"
     return {
         "ticket_id": ticket_id,
         "r1": reds[0],
@@ -32,7 +35,7 @@ def _ticket_record(ticket_id: int, reds: list[int], blue: int, config: dict[str,
         "r5": reds[4],
         "r6": reds[5],
         "blue": blue,
-        "mode": config["generation"].get("mode", "standard"),
+        "mode": mode,
         "filters_used": ",".join(enabled_filter_names(config)),
         "red_sum": features["red_sum"],
         "span": features["span"],
@@ -41,7 +44,7 @@ def _ticket_record(ticket_id: int, reds: list[int], blue: int, config: dict[str,
         "zone_pattern": "-".join(str(count) for count in zones),
         "mod3_pattern": "-".join(str(count) for count in mods),
         "ac_value": features["ac_value"],
-        "notes": "historical_shape_constrained_random",
+        "notes": notes,
     }
 
 
@@ -82,6 +85,14 @@ def _build_candidate_pool_summary(
         if config["filters"].get(config_key, False)
     ]
 
+    mode = config["generation"].get("mode", "standard")
+    if mode == "coverage":
+        initial_notes = "coverage pool attempts reaching filters (excl. intra-batch duplicates)"
+        accepted_notes = "passed all filters (coverage/wheeling)"
+    else:
+        initial_notes = "attempts reaching filters (excl. intra-batch duplicates)"
+        accepted_notes = "passed all filters"
+
     rows: list[dict[str, Any]] = []
     remaining = filtered_attempts
     rows.append({
@@ -89,7 +100,7 @@ def _build_candidate_pool_summary(
         "remaining_count": remaining,
         "removed_count": 0,
         "remaining_ratio": 1.0,
-        "notes": "attempts reaching filters (excl. intra-batch duplicates)",
+        "notes": initial_notes,
     })
     for reason, step in enabled_steps:
         removed = fail_counts.get(reason, 0)
@@ -119,12 +130,12 @@ def _build_candidate_pool_summary(
         "remaining_count": accepted,
         "removed_count": 0,
         "remaining_ratio": round(accepted / filtered_attempts, 6) if filtered_attempts else 0.0,
-        "notes": "passed all filters",
+        "notes": accepted_notes,
     })
     return rows
 
 
-def generate_tickets(n: int, stats: dict[str, Any], config: dict[str, Any]) -> pd.DataFrame:
+def _generate_standard(n: int, stats: dict[str, Any], config: dict[str, Any]) -> pd.DataFrame:
     rng = random.Random(config["generation"].get("random_seed"))
     max_attempts = int(config["generation"]["max_attempts"])
     records: list[dict[str, Any]] = []
@@ -158,3 +169,56 @@ def generate_tickets(n: int, stats: dict[str, Any], config: dict[str, Any]) -> p
         filtered_attempts, len(records), fail_counts, config
     )
     return df
+
+
+def _generate_coverage(n: int, stats: dict[str, Any], config: dict[str, Any]) -> pd.DataFrame:
+    rng = random.Random(config["generation"].get("random_seed"))
+    max_attempts = int(config["generation"]["max_attempts"])
+    coverage = config.get("coverage", {})
+    red_pool_size = int(coverage.get("red_pool_size", 8))
+    max_tickets = int(coverage.get("max_tickets", 28))
+    pick = int(coverage.get("pick", 6))
+
+    target = min(n, max_tickets)
+    records: list[dict[str, Any]] = []
+    attempts = 0
+    seen: set[tuple[int, ...]] = set()
+    fail_counts: dict[str, int] = {}
+    filtered_attempts = 0
+
+    while len(records) < target and attempts < max_attempts:
+        attempts += 1
+        pool = sorted(rng.sample(range(1, 34), red_pool_size))
+        combos = limited_wheel(pool, max_tickets, pick=pick, rng=rng)
+        for reds in combos:
+            if len(records) >= target:
+                break
+            blue = generate_blue(config, rng=rng)
+            key = (*reds, blue)
+            if key in seen:
+                continue
+            filtered_attempts += 1
+            passed, reasons = pass_all_filters(reds, blue, stats, config)
+            if not passed:
+                fail_counts[reasons[0]] = fail_counts.get(reasons[0], 0) + 1
+                continue
+            seen.add(key)
+            records.append(_ticket_record(len(records) + 1, reds, blue, config))
+
+    if len(records) < target:
+        raise GenerationError(
+            f"Generated {len(records)} of {target} tickets within max_attempts={max_attempts}."
+        )
+
+    df = pd.DataFrame(records)
+    df.attrs["candidate_pool_summary"] = _build_candidate_pool_summary(
+        filtered_attempts, len(records), fail_counts, config
+    )
+    return df
+
+
+def generate_tickets(n: int, stats: dict[str, Any], config: dict[str, Any]) -> pd.DataFrame:
+    mode = config["generation"].get("mode", "standard")
+    if mode == "coverage":
+        return _generate_coverage(n, stats, config)
+    return _generate_standard(n, stats, config)

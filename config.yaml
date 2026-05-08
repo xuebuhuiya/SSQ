@@ -37,5 +37,10 @@ rules:
   min_zone_covered: 2
   max_mod3_count: 4
 
+coverage:
+  red_pool_size: 8
+  max_tickets: 28
+  pick: 6
+
 blue:
   mode: "random"

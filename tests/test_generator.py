@@ -50,6 +50,36 @@ def test_generate_tickets_raises_when_attempts_exhausted(sample_stats, sample_co
         generate_tickets(5, sample_stats, sample_config)
 
 
+def test_generate_coverage_tickets_is_reproducible(sample_stats, sample_coverage_config):
+    first = generate_tickets(4, sample_stats, sample_coverage_config)
+    second = generate_tickets(4, sample_stats, sample_coverage_config)
+
+    assert first.to_dict("records") == second.to_dict("records")
+    assert len(first) == 4
+    assert set(first["mode"]) == {"coverage"}
+    assert all(note == "coverage_wheeling_constrained" for note in first["notes"])
+
+
+def test_generate_coverage_respects_max_tickets(sample_stats, sample_coverage_config):
+    sample_coverage_config["generation"]["num_tickets"] = 5
+    sample_coverage_config["coverage"]["max_tickets"] = 2
+
+    df = generate_tickets(5, sample_stats, sample_coverage_config)
+
+    assert len(df) == 2
+    assert set(df["mode"]) == {"coverage"}
+
+
+def test_generate_coverage_summary_mentions_wheeling(sample_stats, sample_coverage_config):
+    df = generate_tickets(3, sample_stats, sample_coverage_config)
+    summary = df.attrs["candidate_pool_summary"]
+
+    assert summary[0]["step"] == "initial_random"
+    assert "coverage" in summary[0]["notes"]
+    assert summary[-1]["step"] == "accepted"
+    assert "wheeling" in summary[-1]["notes"]
+
+
 def test_generate_blue_compatible_signature():
     from src.blue_strategy import generate_blue
 
