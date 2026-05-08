@@ -53,6 +53,11 @@ http://127.0.0.1:5000/
 
 网页支持选择注数、生成模式、蓝球策略和过滤策略，并会展示生成结果与过滤摘要。
 
+终端关闭
+```bash
+Stop-Process -Id (Get-NetTCPConnection -LocalPort 5000 -State Listen).OwningProcess
+```
+
 ## 输出文件
 
 运行后会写入 `data/output/`：
