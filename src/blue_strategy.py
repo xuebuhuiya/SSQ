@@ -4,7 +4,7 @@ import random
 from typing import Any
 
 
-def generate_blue(config: dict[str, Any], rng: random.Random | None = None, history_df=None) -> int:
+def generate_blue(config: dict[str, Any], history_df=None, rng: random.Random | None = None) -> int:
     rng = rng or random.Random()
     mode = config.get("blue", {}).get("mode", "random")
     if mode == "random":

@@ -43,7 +43,7 @@ def run(argv: list[str] | None = None) -> int:
 
         tickets.to_csv(output_dir / "generated_numbers.csv", index=False, encoding="utf-8-sig")
         stats["stats_summary"].to_csv(output_dir / "stats_summary.csv", index=False, encoding="utf-8-sig")
-        pd.DataFrame([tickets.attrs["candidate_pool_summary"]]).to_csv(
+        pd.DataFrame(tickets.attrs["candidate_pool_summary"]).to_csv(
             output_dir / "candidate_pool_summary.csv",
             index=False,
             encoding="utf-8-sig",

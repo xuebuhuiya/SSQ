@@ -54,11 +54,74 @@ def generate_ticket(
     max_attempts = int(config["generation"]["max_attempts"])
     for _ in range(max_attempts):
         reds = generate_random_reds(rng)
-        blue = generate_blue(config, rng)
-        passed, _ = pass_all_filters(reds, blue, stats, config)
+        blue = generate_blue(config, rng=rng)
+        passed, reasons = pass_all_filters(reds, blue, stats, config)
         if passed:
             return _ticket_record(1, reds, blue, config)
     raise GenerationError(f"Unable to generate a ticket within max_attempts={max_attempts}.")
+
+
+def _build_candidate_pool_summary(
+    filtered_attempts: int,
+    accepted: int,
+    fail_counts: dict[str, int],
+    config: dict[str, Any],
+) -> list[dict[str, Any]]:
+    filter_order = [
+        ("position_filter_failed", "position_filter", "enable_position_quantile"),
+        ("shape_filter_failed", "shape_filter", "enable_shape_filter"),
+        ("anti_collision_filter_failed", "anti_collision_filter", "enable_anti_collision"),
+        ("zone_filter_failed", "zone_filter", "enable_zone_filter"),
+        ("mod3_filter_failed", "mod3_filter", "enable_mod3_filter"),
+        ("ac_filter_failed", "ac_filter", "enable_ac_filter"),
+        ("history_duplicate_filter_failed", "history_duplicate_filter", "enable_history_duplicate_filter"),
+    ]
+    enabled_steps = [
+        (reason, step)
+        for reason, step, config_key in filter_order
+        if config["filters"].get(config_key, False)
+    ]
+
+    rows: list[dict[str, Any]] = []
+    remaining = filtered_attempts
+    rows.append({
+        "step": "initial_random",
+        "remaining_count": remaining,
+        "removed_count": 0,
+        "remaining_ratio": 1.0,
+        "notes": "attempts reaching filters (excl. intra-batch duplicates)",
+    })
+    for reason, step in enabled_steps:
+        removed = fail_counts.get(reason, 0)
+        remaining -= removed
+        rows.append({
+            "step": step,
+            "remaining_count": remaining,
+            "removed_count": removed,
+            "remaining_ratio": round(remaining / filtered_attempts, 6) if filtered_attempts else 0.0,
+            "notes": reason,
+        })
+    reported_failures = {reason for reason, _ in enabled_steps}
+    other_removed = sum(
+        count for reason, count in fail_counts.items() if reason not in reported_failures
+    )
+    if other_removed:
+        remaining -= other_removed
+        rows.append({
+            "step": "other_filter",
+            "remaining_count": remaining,
+            "removed_count": other_removed,
+            "remaining_ratio": round(remaining / filtered_attempts, 6) if filtered_attempts else 0.0,
+            "notes": "unmapped filter failures",
+        })
+    rows.append({
+        "step": "accepted",
+        "remaining_count": accepted,
+        "removed_count": 0,
+        "remaining_ratio": round(accepted / filtered_attempts, 6) if filtered_attempts else 0.0,
+        "notes": "passed all filters",
+    })
+    return rows
 
 
 def generate_tickets(n: int, stats: dict[str, Any], config: dict[str, Any]) -> pd.DataFrame:
@@ -67,16 +130,20 @@ def generate_tickets(n: int, stats: dict[str, Any], config: dict[str, Any]) -> p
     records: list[dict[str, Any]] = []
     attempts = 0
     seen: set[tuple[int, ...]] = set()
+    fail_counts: dict[str, int] = {}
+    filtered_attempts = 0
 
     while len(records) < n and attempts < max_attempts:
         attempts += 1
         reds = generate_random_reds(rng)
-        blue = generate_blue(config, rng)
+        blue = generate_blue(config, rng=rng)
         key = (*reds, blue)
         if key in seen:
             continue
-        passed, _ = pass_all_filters(reds, blue, stats, config)
+        filtered_attempts += 1
+        passed, reasons = pass_all_filters(reds, blue, stats, config)
         if not passed:
+            fail_counts[reasons[0]] = fail_counts.get(reasons[0], 0) + 1
             continue
         seen.add(key)
         records.append(_ticket_record(len(records) + 1, reds, blue, config))
@@ -87,11 +154,7 @@ def generate_tickets(n: int, stats: dict[str, Any], config: dict[str, Any]) -> p
         )
 
     df = pd.DataFrame(records)
-    df.attrs["candidate_pool_summary"] = {
-        "generation_attempts": attempts,
-        "accepted_count": len(records),
-        "rejected_count": attempts - len(records),
-        "acceptance_ratio": len(records) / attempts if attempts else 0.0,
-        "notes": "random_candidates_with_enabled_filters",
-    }
+    df.attrs["candidate_pool_summary"] = _build_candidate_pool_summary(
+        filtered_attempts, len(records), fail_counts, config
+    )
     return df
